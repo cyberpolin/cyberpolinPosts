@@ -1,0 +1,120 @@
+# Administrando varias versiones de Node al mismo tiempo
+
+Ya dominas JS y has trabajado con node en algún proyecto, incluso varios. Pero llego el momento en el que tienes varios proyectos simultáneos en los que usas node, pero que pasa con la versión de Node?
+
+Node es JavaScript en la terminal, o dicho de manera más técnica Node es el runtime de JavaScript para ejecutarse fuera del explorador, y para efectos prácticos convierte JavaScript en backend. Lo ocupamos de muchas maneras, incluso quienes desarrollamos React o React Native usamos Node de manera local para correr un servidor que nos ayude a desarrollar y ejecutar un app de React, incluso Vue y otras tecnologías similares.
+
+Generalmente trabajamos en diferentes proyectos simultáneamente, quizá un sitio con Next Js y una o dos aplicaciones a las que les damos soporte, pero que sucede si estas aplicaciones usan diferentes versiones de Node?
+
+Si ya paso tiempo que se desarrollo alguna aplicación, lo mas probable es que la version de Node que se uso en aquel momento haya cambiado, y es probable que algunas librerías no funcionen con otras versiones. Pero no tendría caso desarrollar una nueva aplicación con una version vieja de Node y aquí empieza el problema…
+
+Ahora tienes una app de Next con Node 14, una de React Native con node 12 y una con 16. Estar cambiando de versiones se vuelve complicado, es por eso que existe NVM.
+
+NVM es un paquete que nos va a permitir administrar diferentes versiones de Node en nuestro equipo, Esto de manera practica y fácil con apenas algunos comandos podrás cambiar de una a otra version a voluntad, ademas cada version tendrá su propio ambiente de librerías e instalaciones por lo que cada version usara solo lo que tu necesites.
+
+Por ejemplo podrás instalar la ultima version de Node con tan solo ```nvm install node``` que es un alias para instalar siempre la ultima version, o podrás instalar la version 14 con tan solo ```nvm install v14```
+
+Así de sencillo, luego podrás cambiarte de versiones con el comando ```nvm use <version>``` por ejemplos  ```nvm use v14```
+
+Tambien puedes asignar alias para las versiones y utilizar una version como default, por ejemplo ```nvm alias default <version>``` lo que hará que la version que asignaste sea la que se use por defecto en todo tu sistema operativo.
+
+Por ultimo, una de las características que mas me gusta de NVM y que te recomiendo que uses es la del archivo ```nvmrc``` que significa nvm Run Commands, asi que lo que haremos es asignar la version de Node con la que queremos trabajar en ese proyecto y en la raid del mismo haremos un dot file llamando nvmrc. Cada ves que NVM lo detecte automáticamente cambiara a esa version de Node, así nosotros no tenemos que preocuparnos por hacerlo manualmente, como si eso fuera poco esto ayudara a todos los desarrolladores que trabajen en el proyecto y así todos tendrán la misma versión de Node.
+
+Tambien estandarizara la version de Node con herramientas de construcción automatizada como apacenter u otros…
+
+Basta de tanta verborrea, instalemos NVM.
+
+```curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash```
+
+Con este comando descargaremos un shell script que a su ves se ejecutara, y este script descargara e instalara la ultima versión de NVM, puede ser que lo tengas que correr usando ```sudo```
+
+Si quisieras instalarlo en Windows hay otras alternativas que no cubrire en este video, pero si te interesa házmelo saber en los comentarios…
+
+Finalmente para poder comenzar a usarlo hay que abrir alguno de los siguientes archivos, que son archivos que usa tu Shell  para cargar variables de entorno o algunas configuraciones en tu terminal. Si no sabes que es un Shell, te dejo la liga a mi video sobre Shell en la descripción…
+
+```~/.bash_profile, ~/.zshrc, ~/.profile, or ~/.bashrc```
+
+Si no has instalado Oh my Shell, debes encontrar el archivo `.bashrc` en mi caso usaremos el `zshrc` que es el que usa oh my shell, y simplemente agregaremos lo siguiente…
+
+Para zsh…
+
+```export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+autoload -U add-zsh-hook
+load-nvmrc() {
+  local node_version="$(nvm version)"
+  local nvmrc_path="$(nvm_find_nvmrc)"
+
+  if [ -n "$nvmrc_path" ]; then
+    local nvmrc_node_version=$(nvm version "$(cat "${nvmrc_path}")")
+
+    if [ "$nvmrc_node_version" = "N/A" ]; then
+      nvm install
+    elif [ "$nvmrc_node_version" != "$node_version" ]; then
+      nvm use
+    fi
+  elif [ "$node_version" != "$(nvm version default)" ]; then
+    echo "Reverting to nvm default version"
+    nvm use default
+  fi
+}
+add-zsh-hook chpwd load-nvmrc
+load-nvmrc
+
+```
+
+Para Bash
+
+``````export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+cdnvm() {
+    command cd "$@";
+    nvm_path=$(nvm_find_up .nvmrc | tr -d '\n')
+
+    # If there are no .nvmrc file, use the default nvm version
+    if [[ ! $nvm_path = *[^[:space:]]* ]]; then
+
+        declare default_version;
+        default_version=$(nvm version default);
+
+        # If there is no default version, set it to `node`
+        # This will use the latest version on your machine
+        if [[ $default_version == "N/A" ]]; then
+            nvm alias default node;
+            default_version=$(nvm version default);
+        fi
+
+        # If the current version is not the default version, set it to use the default version
+        if [[ $(nvm current) != "$default_version" ]]; then
+            nvm use default;
+        fi
+
+    elif [[ -s $nvm_path/.nvmrc && -r $nvm_path/.nvmrc ]]; then
+        declare nvm_version
+        nvm_version=$(<"$nvm_path"/.nvmrc)
+
+        declare locally_resolved_nvm_version
+        # `nvm ls` will check all locally-available versions
+        # If there are multiple matching versions, take the latest one
+        # Remove the `->` and `*` characters and spaces
+        # `locally_resolved_nvm_version` will be `N/A` if no local versions are found
+        locally_resolved_nvm_version=$(nvm ls --no-colors "$nvm_version" | tail -1 | tr -d '\->*' | tr -d '[:space:]')
+
+        # If it is not already installed, install it
+        # `nvm install` will implicitly use the newly-installed version
+        if [[ "$locally_resolved_nvm_version" == "N/A" ]]; then
+            nvm install "$nvm_version";
+        elif [[ $(nvm current) != "$locally_resolved_nvm_version" ]]; then
+            nvm use "$nvm_version";
+        fi
+    fi
+}
+alias cd='cdnvm'
+cd "$PWD"
+```
+
+Y listo, en ambos casos cada que te cambies de carpeta se instalara la versión que contenga el archivo .nvmrc
+
+Por ultimo te dejo un cheat sheet de los comandos mas utiles sobre NVM en la descripción.
+
+Si crees que esta información le puede ser de ayuda a alguien que conozcas compártela, y si no quieres perderte de ninguno de mis videos suscríbete, así You tube te avisara cuando algo nuevo salga, por lo pronto, hasta la próxima BYTES.
